@@ -13,8 +13,9 @@ let selectedMonth = now.getMonth();
 let selectedYear = now.getFullYear();
 let selectedDateKey = null;
 
-// Weekday names
+// Weekday and month names
 const weekdays = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+const monthNames = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 
 // Initialize charts
 let weightChart = new Chart(weightCtx, {
@@ -23,7 +24,22 @@ let weightChart = new Chart(weightCtx, {
         labels: ['Yaptı','Yapmadı'],
         datasets: [{ data: [0,0], backgroundColor: ['#4CAF50','#F44336'] }]
     },
-    options: { plugins: { legend: { labels: { font: { size: 16 } } } } }
+    options: {
+        plugins: {
+            legend: { labels: { font: { size: 16 } } },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const data = context.dataset.data;
+                        const sum = data.reduce((a, b) => a + b, 0);
+                        const value = context.parsed;
+                        const percentage = sum ? (value*100/sum).toFixed(1) : 0;
+                        return context.label + ': ' + percentage + '%';
+                    }
+                }
+            }
+        }
+    }
 });
 let cardioChart = new Chart(cardioCtx, {
     type: 'pie',
@@ -31,7 +47,22 @@ let cardioChart = new Chart(cardioCtx, {
         labels: ['Yaptı','Yapmadı'],
         datasets: [{ data: [0,0], backgroundColor: ['#4CAF50','#F44336'] }]
     },
-    options: { plugins: { legend: { labels: { font: { size: 16 } } } } }
+    options: {
+        plugins: {
+            legend: { labels: { font: { size: 16 } } },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const data = context.dataset.data;
+                        const sum = data.reduce((a, b) => a + b, 0);
+                        const value = context.parsed;
+                        const percentage = sum ? (value*100/sum).toFixed(1) : 0;
+                        return context.label + ': ' + percentage + '%';
+                    }
+                }
+            }
+        }
+    }
 });
 
 function renderCalendar() {
@@ -39,7 +70,7 @@ function renderCalendar() {
     selectionPanel.innerHTML = '';
     const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    monthYearEl.textContent = `${selectedYear} ${selectedMonth+1}`;
+    monthYearEl.textContent = monthNames[selectedMonth] + ' ' + selectedYear;
     // blank cells
     for (let i = 0; i < firstDay; i++) calendarEl.appendChild(document.createElement('div'));
     // day cells
@@ -48,14 +79,11 @@ function renderCalendar() {
         cell.classList.add('day-cell');
         const dateKey = `${selectedYear}-${selectedMonth+1}-${day}`;
         let status = localStorage.getItem(dateKey);
-        // Add status class
         if (status === 'yapti') cell.classList.add('mark-yapti');
         else if (status === 'yapmadi') cell.classList.add('mark-yapmadi');
         else if (status === 'offday') cell.classList.add('mark-offday');
-        // Add day number and weekday
         const dateObj = new Date(selectedYear, selectedMonth, day);
         cell.innerHTML = `<div>${day}</div><div style="font-size:0.6em;">${weekdays[dateObj.getDay()]}</div>`;
-        // Click to select day
         cell.addEventListener('click', () => {
             selectedDateKey = dateKey;
             renderCalendar();
@@ -69,15 +97,29 @@ function renderCalendar() {
 function updateSelectionPanel() {
     selectionPanel.innerHTML = '';
     if (!selectedDateKey) return;
-    // Status buttons
-    const btnYapti = document.createElement('button'); btnYapti.textContent='Yaptı';
-    btnYapti.addEventListener('click', () => { localStorage.setItem(selectedDateKey,'yapti'); renderCalendar(); updateSelectionPanel(); updateCharts(); });
-    const btnYapmadi = document.createElement('button'); btnYapmadi.textContent='Yapmadı';
-    btnYapmadi.addEventListener('click', () => { localStorage.setItem(selectedDateKey,'yapmadi'); renderCalendar(); updateSelectionPanel(); updateCharts(); });
-    const btnOff = document.createElement('button'); btnOff.textContent='Off day';
-    btnOff.addEventListener('click', () => { localStorage.setItem(selectedDateKey,'offday'); renderCalendar(); updateSelectionPanel(); updateCharts(); });
-    selectionPanel.append(btnYapti, btnYapmadi, btnOff);
-    // If yapti, show workout and cardio
+    // Status buttons with toggle
+    const statuses = [
+        {label:'Yaptı', value:'yapti'},
+        {label:'Yapmadı', value:'yapmadi'},
+        {label:'Off day', value:'offday'}
+    ];
+    statuses.forEach(s => {
+        const btn = document.createElement('button');
+        btn.textContent = s.label;
+        btn.addEventListener('click', () => {
+            const current = localStorage.getItem(selectedDateKey);
+            if (current === s.value) {
+                localStorage.removeItem(selectedDateKey);
+            } else {
+                localStorage.setItem(selectedDateKey, s.value);
+            }
+            renderCalendar();
+            updateSelectionPanel();
+            updateCharts();
+        });
+        selectionPanel.append(btn);
+    });
+    // Workout and cardio if 'yapti'
     if (localStorage.getItem(selectedDateKey) === 'yapti') {
         const wLabel = document.createElement('label'); wLabel.textContent='Hangi Antrenman? ';
         const wSelect = document.createElement('select');
@@ -89,21 +131,32 @@ function updateSelectionPanel() {
         ['evet','hayır'].forEach(opt => cSelect.add(new Option(opt.charAt(0).toUpperCase()+opt.slice(1),opt)));
         cSelect.value = localStorage.getItem(selectedDateKey+'-cardio')||'hayır';
         cSelect.addEventListener('change', ()=>{ localStorage.setItem(selectedDateKey+'-cardio',cSelect.value); updateCharts(); });
-        selectionPanel.append(wLabel,wSelect,cLabel,cSelect);
+        selectionPanel.append(wLabel, wSelect, cLabel, cSelect);
     }
-    // Food entry
+    // Food entry - append items
+    const foodKey = selectedDateKey+'-food';
     const fLabel = document.createElement('label'); fLabel.textContent='Bugün ne yedim?';
-    const fTextarea = document.createElement('textarea'); 
-    fTextarea.value = localStorage.getItem(selectedDateKey+'-food')||'';
-    const saveBtn = document.createElement('button'); saveBtn.textContent='Kaydet';
-    saveBtn.addEventListener('click', ()=>{ localStorage.setItem(selectedDateKey+'-food',fTextarea.value); renderFoodList(); });
+    const fInput = document.createElement('input'); fInput.type='text'; fInput.placeholder='Bir yiyecek girin';
+    const addBtn = document.createElement('button'); addBtn.textContent='Ekle';
     const foodList = document.createElement('ul'); foodList.id='foodList';
-    selectionPanel.append(fLabel, fTextarea, saveBtn, foodList);
+    addBtn.addEventListener('click', () => {
+        const val = fInput.value.trim();
+        if (!val) return;
+        const items = JSON.parse(localStorage.getItem(foodKey) || '[]');
+        items.push(val);
+        localStorage.setItem(foodKey, JSON.stringify(items));
+        fInput.value = '';
+        renderFoodList();
+    });
     function renderFoodList() {
-        foodList.innerHTML='';
-        const items = (localStorage.getItem(selectedDateKey+'-food')||'').split('\n');
-        items.forEach(item => { if(item.trim()) { const li = document.createElement('li'); li.textContent = item; foodList.append(li); } });
+        foodList.innerHTML = '';
+        const items = JSON.parse(localStorage.getItem(foodKey) || '[]');
+        items.forEach(item => {
+            const li = document.createElement('li'); li.textContent = item;
+            foodList.append(li);
+        });
     }
+    selectionPanel.append(fLabel, fInput, addBtn, foodList);
     renderFoodList();
 }
 
@@ -119,8 +172,10 @@ function updateCharts() {
         if (status==='yapti' && cardio==='evet') cDone++;
         else if (status==='yapti' && cardio==='hayır') cNot++;
     }
-    weightChart.data.datasets[0].data=[wDone,wNot]; weightChart.update();
-    cardioChart.data.datasets[0].data=[cDone,cNot]; cardioChart.update();
+    weightChart.data.datasets[0].data=[wDone, wNot];
+    cardioChart.data.datasets[0].data=[cDone, cNot];
+    weightChart.update();
+    cardioChart.update();
 }
 
 prevBtn.addEventListener('click', ()=>{ selectedMonth--; if(selectedMonth<0){selectedMonth=11;selectedYear--;} selectedDateKey=null; renderCalendar(); updateCharts(); });

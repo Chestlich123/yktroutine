@@ -31,7 +31,7 @@ h1 {
     text-align: center;
     cursor: pointer;
     user-select: none;
-    height: 40px;
+    height: 50px;
     line-height: 1.2;
 }
 .day-cell.selected {
@@ -47,18 +47,18 @@ h1 {
     background-color: orange;
 }
 .selection-panel {
-    max-width: 420px;
+    max-width: 500px;
     margin: 10px auto;
-    text-align: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
 }
-.selection-panel button, .selection-panel select, .selection-panel textarea {
-    margin: 5px;
-    padding: 5px;
+.selection-panel button, .selection-panel select, .selection-panel input {
+    margin: 0;
+    padding: 6px;
     font-size: 0.9em;
-}
-.selection-panel textarea {
-    width: 90%;
-    height: 60px;
 }
 #charts {
     position: absolute;
@@ -82,7 +82,4 @@ h1 {
 .chart-container canvas {
     width: 150px !important;
     height: 150px !important;
-}
-.chart-container .legend-label {
-    font-size: 14px !important;
 }
